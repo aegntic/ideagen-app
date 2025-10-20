@@ -1,6 +1,6 @@
 # IdeaGen Deployment Guide - Google Cloud + Vertex AI
 
-## 🚀 Quick Start for Hackathon
+## Quick Start for Hackathon
 
 This guide will get your IdeaGen app running on Google Cloud with Vertex AI integration in under 15 minutes.
 
@@ -89,7 +89,7 @@ gcloud run deploy idea-gen \
   --min-instances 1
 ```
 
-## 🔧 Local Development
+## Local Development
 
 ### Environment Setup
 ```bash
@@ -234,7 +234,7 @@ gcloud sql instances describe idea-gen-db
 gcloud sql connect idea-gen-db --user=postgres
 ```
 
-## 🚀 Performance Optimization
+## Performance Optimization
 
 ### Recommended Settings
 - **Memory**: 2Gi (minimum), 4Gi (production)
@@ -329,7 +329,7 @@ scenarios:
 
 ---
 
-**Good luck with the hackathon! 🚀**
+**Good luck with the hackathon!**
 
 Remember: The judges will look for:
 - **Technical Innovation**: Vertex AI integration

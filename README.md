@@ -1,20 +1,20 @@
 # IdeaGen App - AI-Powered Business Idea Pipeline
 
-**🚀 Now powered by Google Vertex AI with Gemini 2.5 Pro & Flash models!**
+**Now powered by Google Vertex AI with Gemini 2.5 Pro & Flash models!**
 
 An advanced AI-driven platform that automates the entire journey from idea discovery to multi-project management. Built for Google Cloud with scalable SaaS architecture in mind.
 
-## 🎯 Overview
+## Overview
 
 The IdeaGen App is a comprehensive automation platform that:
-- 🧠 **Generates business ideas** using Google's Gemini 2.5 Pro model
-- ✅ **Validates ideas** through AI-powered multi-criteria analysis
-- 🚀 **Selects viable projects** automatically based on scoring
-- 🌐 **Builds websites** and launches social campaigns
-- 📊 **Tracks performance** and scales successful projects
-- 🎛️ **Manages multiple projects** simultaneously with AI insights
+- **Generates business ideas** using Google's Gemini 2.5 Pro model
+- **Validates ideas** through AI-powered multi-criteria analysis
+- **Selects viable projects** automatically based on scoring
+- **Builds websites** and launches social campaigns
+- **Tracks performance** and scales successful projects
+- **Manages multiple projects** simultaneously with AI insights
 
-## 🤖 AI Model Integration
+## AI Model Integration
 
 ### Google Vertex AI Models
 - **Gemini 2.5 Pro**: High-performance model for complex idea generation and validation
@@ -26,7 +26,7 @@ The IdeaGen App is a comprehensive automation platform that:
 - **Content Creation**: Gemini 2.5 Flash-Nano-Banana (fast generation)
 - **Quick Analysis**: Gemini 2.5 Flash-Nano-Banana (real-time insights)
 
-## 🏗️ Project Structure
+## Project Structure
 
 ```
 ideaGen-app/
@@ -48,7 +48,7 @@ ideaGen-app/
 └── package.json          # Dependencies
 ```
 
-## 🌩️ Google Cloud Deployment
+## Google Cloud Deployment
 
 ### Prerequisites
 - Google Cloud Project with billing enabled
@@ -84,7 +84,7 @@ gcloud run deploy idea-gen --image gcr.io/PROJECT_ID/idea-gen --platform managed
 gcloud secrets create idea-gen-db-password --replication-policy="automatic"
 ```
 
-## 🔧 Local Development Setup
+## Local Development Setup
 
 ### Environment Configuration
 Create `.env` file:
@@ -125,7 +125,7 @@ npm run local:test
 npm run deploy
 ```
 
-## 📊 API Endpoints
+## API Endpoints
 
 ### Core AI-Powered Endpoints
 - `POST /api/ideas/generate` - Generate ideas using Gemini 2.5 Pro
@@ -162,9 +162,9 @@ const validation = await fetch('/api/ideas/validate', {
 });
 ```
 
-## 🚀 Completed Components
+## Completed Components
 
-### ✅ 01 - AI Idea Generation Hub
+### 01 - AI Idea Generation Hub
 - **AI Model**: Gemini 2.5 Pro
 - **Features**:
   - Fetches trends from Reddit, Product Hunt, Google Trends
@@ -172,7 +172,7 @@ const validation = await fetch('/api/ideas/validate', {
   - Stores ideas with AI-generated metadata
   - Intelligent categorization and tagging
 
-### ✅ 02 - AI Validation Engine
+### 02 - AI Validation Engine
 - **AI Model**: Gemini 2.5 Pro
 - **Validation Metrics**:
   - Market demand analysis (AI-powered)
@@ -183,7 +183,7 @@ const validation = await fetch('/api/ideas/validate', {
 - **Output**: Comprehensive validation report (0-100 score)
 - **Auto-progression**: Ideas scoring 70+ proceed automatically
 
-### 🔄 03-08 - In Progress
+### 03-08 - In Progress
 - Selection System with AI recommendations
 - Project Initializer with AI-generated documentation
 - Website Builder with AI copywriting
@@ -191,17 +191,17 @@ const validation = await fetch('/api/ideas/validate', {
 - Analytics Dashboard with AI insights
 - Multi-Project Orchestrator with AI optimization
 
-## 🔍 Key Features
+## Key Features
 
-- **🤖 AI-Powered**: Google's most advanced Gemini models
-- **☁️ Cloud-Native**: Built for Google Cloud scalability
-- **🔒 Secure**: Secret Manager integration
-- **📈 Scalable**: Cloud Run with auto-scaling
-- **🔄 Reliable**: Built-in retry logic and error handling
-- **📊 Data-Driven**: PostgreSQL with intelligent indexing
-- **🎯 Hackathon-Ready**: Perfect for Elastic + Fivetran challenges
+- **AI-Powered**: Google's most advanced Gemini models
+- **Cloud-Native**: Built for Google Cloud scalability
+- **Secure**: Secret Manager integration
+- **Scalable**: Cloud Run with auto-scaling
+- **Reliable**: Built-in retry logic and error handling
+- **Data-Driven**: PostgreSQL with intelligent indexing
+- **Hackathon-Ready**: Perfect for Elastic + Fivetran challenges
 
-## 🏆 Hackathon Advantages
+## Hackathon Advantages
 
 ### For Elastic Challenge
 - **AI-powered search**: Find ideas using semantic search
@@ -219,7 +219,7 @@ const validation = await fetch('/api/ideas/validate', {
 - **Cloud SQL**: Managed database
 - **Secret Manager**: Secure credential storage
 
-## 📈 Performance Metrics
+## Performance Metrics
 
 - **Idea Generation**: ~3 seconds per 10 ideas (Gemini 2.5 Pro)
 - **Validation**: ~2 seconds per idea (Gemini 2.5 Pro)
@@ -227,7 +227,7 @@ const validation = await fetch('/api/ideas/validate', {
 - **Quick Analysis**: ~500ms (Flash-Nano-Banana)
 - **Scalability**: Handles 100+ concurrent requests
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 - **Backend**: Node.js, Express
 - **AI**: Google Vertex AI (Gemini 2.5 Pro & Flash)
@@ -237,28 +237,28 @@ const validation = await fetch('/api/ideas/validate', {
 - **Monitoring**: Cloud Logging & Monitoring
 - **Automation**: n8n workflows
 
-## 📚 Documentation
+## Documentation
 
 - **API Docs**: `/api/docs` endpoint
 - **Architecture**: `config/google-cloud-deployment.json`
 - **Database Schema**: `database/schema.sql`
 - **Deployment Guide**: `deploy/google-cloud-deploy.sh`
 
-## 🤝 Contributing
+## Contributing
 
 This project is hackathon-ready with focus on:
-1. ✅ AI integration with Google Vertex AI
-2. ✅ Google Cloud deployment
-3. ✅ API-first architecture
-4. ⚡ Elastic search integration opportunity
-5. ⚡ Fivetran connector development opportunity
+1. AI integration with Google Vertex AI
+2. Google Cloud deployment
+3. API-first architecture
+4. Elastic search integration opportunity
+5. Fivetran connector development opportunity
 
-## 📄 License
+## License
 
 MIT License - Open source for hackathon submission
 
 ---
 
-**🚀 Built with ❤️ using Google Cloud, Vertex AI, and cutting-edge AI technology**
+**Built with Google Cloud, Vertex AI, and cutting-edge AI technology**
 
 *Perfect for the Google Cloud x Elastic x Fivetran Hackathon Challenge!*

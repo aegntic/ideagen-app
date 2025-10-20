@@ -21,23 +21,23 @@ function log(message, color = 'reset') {
 }
 
 function logSuccess(message) {
-  log(`✅ ${message}`, 'green');
+  log(`[SUCCESS] ${message}`, 'green');
 }
 
 function logError(message) {
-  log(`❌ ${message}`, 'red');
+  log(`[ERROR] ${message}`, 'red');
 }
 
 function logInfo(message) {
-  log(`ℹ️  ${message}`, 'blue');
+  log(`[INFO]  ${message}`, 'blue');
 }
 
 function logWarning(message) {
-  log(`⚠️  ${message}`, 'yellow');
+  log(`[WARNING]  ${message}`, 'yellow');
 }
 
 async function testVertexAIIntegration() {
-  log('🤖 Testing Vertex AI Integration with Gemini Models', 'blue');
+  log('Testing Vertex AI Integration with Gemini Models', 'blue');
   log('=' .repeat(60));
 
   // Check environment variables
@@ -79,7 +79,7 @@ async function testVertexAIIntegration() {
   }
 
   // Test 1: Quick Analysis with Flash model
-  logInfo('\n🧠 Test 1: Quick Analysis (Gemini 2.5 Flash-Nano-Banana)');
+  logInfo('\n[TEST] Test 1: Quick Analysis (Gemini 2.5 Flash-Nano-Banana)');
   try {
     const testText = "Artificial Intelligence is revolutionizing business automation and customer service.";
     const analysis = await vertexAIClient.quickAnalysis(testText, 'sentiment');
@@ -92,7 +92,7 @@ async function testVertexAIIntegration() {
   }
 
   // Test 2: Content Generation with Flash model
-  logInfo('\n✍️  Test 2: Content Generation (Gemini 2.5 Flash-Nano-Banana)');
+  logInfo('\n[TEST]  Test 2: Content Generation (Gemini 2.5 Flash-Nano-Banana)');
   try {
     const content = await vertexAIClient.generateContent(
       "Write a catchy tagline for an AI-powered business idea generator",
@@ -132,7 +132,7 @@ async function testVertexAIIntegration() {
   }
 
   // Test 4: Idea Validation with Pro model
-  logInfo('\n🔍 Test 4: Idea Validation (Gemini 2.5 Pro)');
+  logInfo('\n[TEST] Test 4: Idea Validation (Gemini 2.5 Pro)');
   try {
     const testIdea = {
       title: "AI-Powered Customer Service Platform",
@@ -156,7 +156,7 @@ async function testVertexAIIntegration() {
   }
 
   // Test 5: Performance Test
-  logInfo('\n⚡ Test 5: Performance Test');
+  logInfo('\n[TEST] Test 5: Performance Test');
   try {
     const startTime = Date.now();
 
@@ -184,20 +184,20 @@ async function testVertexAIIntegration() {
   }
 
   // Summary
-  logInfo('\n📊 Test Summary');
+  logInfo('\n[SUMMARY] Test Summary');
   log('=' .repeat(30));
   logSuccess('Vertex AI integration tests completed');
   logInfo('Models tested:');
   log('   • Gemini 2.5 Pro (idea generation & validation)');
   log('   • Gemini 2.5 Flash-Nano-Banana (quick analysis & content)');
-  logInfo('\nReady for hackathon deployment! 🚀');
+  logInfo('\nReady for hackathon deployment! [DONE]');
 }
 
 // Run tests
 if (require.main === module) {
   testVertexAIIntegration()
     .then(() => {
-      log('\n✅ All tests completed successfully!', 'green');
+      log('\n[SUCCESS] All tests completed successfully!', 'green');
       process.exit(0);
     })
     .catch((error) => {

@@ -373,10 +373,10 @@ process.on('SIGINT', () => {
 // Start server
 initializeApp().then(() => {
   app.listen(PORT, () => {
-    logger.info(`🚀 IdeaGen server running on port ${PORT}`);
-    logger.info(`📍 Health check: http://localhost:${PORT}/health`);
-    logger.info(`📚 API docs: http://localhost:${PORT}/api/docs`);
-    logger.info(`🤖 Powered by Gemini 2.5 Pro & Flash models`);
+    logger.info(`IdeaGen server running on port ${PORT}`);
+    logger.info(`Health check: http://localhost:${PORT}/health`);
+    logger.info(`API docs: http://localhost:${PORT}/api/docs`);
+    logger.info(`Powered by Gemini 2.5 Pro & Flash models`);
   });
 }).catch(error => {
   logger.error('Failed to start server:', error);
