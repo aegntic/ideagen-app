@@ -11,7 +11,7 @@ const rateLimit = require('express-rate-limit');
 const winston = require('winston');
 const path = require('path');
 const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
-const IdeaGenVertexAIClient = require('./integrations/vertex-ai-client');
+const ideaService = require('./src/services/ideaService');
 
 // Initialize Express app
 const app = express();
@@ -42,6 +42,14 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// Serve static files
+app.use(express.static('public'));
+
+// Root route - serve the frontend
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -53,9 +61,6 @@ app.use('/api/', limiter);
 const secretClient = new SecretManagerServiceClient();
 let secrets = {};
 
-// Vertex AI client
-let vertexAIClient = null;
-
 // Initialize application
 async function initializeApp() {
   try {
@@ -64,8 +69,8 @@ async function initializeApp() {
     // Load secrets from Secret Manager
     await loadSecrets();
 
-    // Initialize Vertex AI client
-    await initializeVertexAI();
+    // Initialize the idea service (database + Vertex AI)
+    await ideaService.initialize();
 
     logger.info('Application initialized successfully');
   } catch (error) {
@@ -108,30 +113,6 @@ async function loadSecrets() {
   }
 }
 
-// Initialize Vertex AI client
-async function initializeVertexAI() {
-  try {
-    const config = {
-      projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
-      location: process.env.GOOGLE_CLOUD_LOCATION || 'us-central1'
-    };
-
-    // Use service account credentials if available
-    if (secrets.googleCredentials) {
-      // Write credentials to temporary file
-      const fs = require('fs');
-      const credentialsPath = '/tmp/google-credentials.json';
-      fs.writeFileSync(credentialsPath, secrets.googleCredentials);
-      config.keyFile = credentialsPath;
-    }
-
-    vertexAIClient = new IdeaGenVertexAIClient(config);
-    logger.info('Vertex AI client initialized');
-  } catch (error) {
-    logger.error('Failed to initialize Vertex AI client:', error);
-    throw error;
-  }
-}
 
 // Routes
 app.get('/health', (req, res) => {
@@ -140,7 +121,9 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     version: '2.0.0',
     features: {
-      vertexAI: !!vertexAIClient,
+      ideaService: !!ideaService.isInitialized,
+      database: !!ideaService.database?.isConnected,
+      memoryFallback: !!ideaService.database?.useMemoryFallback,
       secrets: Object.keys(secrets).length > 0
     }
   });
@@ -151,15 +134,9 @@ app.post('/api/ideas/generate', async (req, res) => {
   try {
     const { sources, count = 10, trends } = req.body;
 
-    if (!vertexAIClient) {
-      return res.status(503).json({
-        error: 'Vertex AI client not initialized'
-      });
-    }
-
     logger.info(`Generating ${count} ideas from sources:`, sources);
 
-    const ideas = await vertexAIClient.generateIdeas(trends || [], sources || [], count);
+    const ideas = await ideaService.generateIdeas({ sources, count, trends });
 
     res.json({
       success: true,
@@ -181,23 +158,17 @@ app.post('/api/ideas/generate', async (req, res) => {
 // Validate idea endpoint
 app.post('/api/ideas/validate', async (req, res) => {
   try {
-    const { idea } = req.body;
+    const { ideaId } = req.body;
 
-    if (!vertexAIClient) {
-      return res.status(503).json({
-        error: 'Vertex AI client not initialized'
-      });
-    }
-
-    if (!idea) {
+    if (!ideaId) {
       return res.status(400).json({
-        error: 'Idea is required'
+        error: 'Idea ID is required'
       });
     }
 
-    logger.info(`Validating idea: ${idea.title}`);
+    logger.info(`Validating idea: ${ideaId}`);
 
-    const validation = await vertexAIClient.validateIdea(idea);
+    const validation = await ideaService.validateIdea(ideaId);
 
     res.json({
       success: true,
@@ -220,19 +191,13 @@ app.post('/api/content/generate', async (req, res) => {
   try {
     const { prompt, contentType = 'marketing' } = req.body;
 
-    if (!vertexAIClient) {
-      return res.status(503).json({
-        error: 'Vertex AI client not initialized'
-      });
-    }
-
     if (!prompt) {
       return res.status(400).json({
         error: 'Prompt is required'
       });
     }
 
-    const content = await vertexAIClient.generateContent(prompt, contentType);
+    const content = await ideaService.generateContent(prompt, contentType);
 
     res.json({
       success: true,
@@ -256,19 +221,13 @@ app.post('/api/analysis/quick', async (req, res) => {
   try {
     const { text, analysisType = 'sentiment' } = req.body;
 
-    if (!vertexAIClient) {
-      return res.status(503).json({
-        error: 'Vertex AI client not initialized'
-      });
-    }
-
     if (!text) {
       return res.status(400).json({
         error: 'Text is required'
       });
     }
 
-    const analysis = await vertexAIClient.quickAnalysis(text, analysisType);
+    const analysis = await ideaService.quickAnalysis(text, analysisType);
 
     res.json({
       success: true,
@@ -287,36 +246,216 @@ app.post('/api/analysis/quick', async (req, res) => {
   }
 });
 
-// Test Vertex AI connection
-app.post('/api/test/vertex-ai', async (req, res) => {
+// Get ideas endpoint
+app.get('/api/ideas', async (req, res) => {
   try {
-    if (!vertexAIClient) {
-      return res.status(503).json({
-        error: 'Vertex AI client not initialized'
-      });
-    }
+    const filters = {
+      status: req.query.status,
+      category: req.query.category,
+      source: req.query.source,
+      limit: parseInt(req.query.limit) || 50,
+      offset: parseInt(req.query.offset) || 0,
+      orderBy: req.query.orderBy || 'created_at',
+      orderDirection: req.query.orderDirection || 'DESC'
+    };
 
-    // Simple test
-    const testAnalysis = await vertexAIClient.quickAnalysis(
-      'This is a test of the Vertex AI integration.',
-      'sentiment'
-    );
+    const ideas = await ideaService.getIdeas(filters);
 
     res.json({
       success: true,
       data: {
-        vertexAI: 'connected',
-        models: {
-          pro: 'gemini-2.5-pro',
-          flash: 'gemini-2.5-flash-nano-banana'
-        },
-        testResult: testAnalysis
+        ideas,
+        count: ideas.length,
+        filters
       }
     });
   } catch (error) {
-    logger.error('Vertex AI test failed:', error);
+    logger.error('Error fetching ideas:', error);
     res.status(500).json({
-      error: 'Vertex AI test failed',
+      error: 'Failed to fetch ideas',
+      details: error.message
+    });
+  }
+});
+
+// Get single idea endpoint
+app.get('/api/ideas/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const idea = await ideaService.getIdeaById(id);
+
+    if (!idea) {
+      return res.status(404).json({
+        error: 'Idea not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: { idea }
+    });
+  } catch (error) {
+    logger.error('Error fetching idea:', error);
+    res.status(500).json({
+      error: 'Failed to fetch idea',
+      details: error.message
+    });
+  }
+});
+
+// Select idea endpoint
+app.post('/api/ideas/:id/select', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await ideaService.selectIdea(id);
+
+    res.json({
+      success: true,
+      data: {
+        message: 'Idea selected successfully',
+        result
+      }
+    });
+  } catch (error) {
+    logger.error('Error selecting idea:', error);
+    res.status(500).json({
+      error: 'Failed to select idea',
+      details: error.message
+    });
+  }
+});
+
+// Semantic search endpoint
+app.post('/api/search/semantic', async (req, res) => {
+  try {
+    const { query, filters = {}, limit = 10, threshold = 0.3 } = req.body;
+
+    if (!query || query.trim().length === 0) {
+      return res.status(400).json({
+        error: 'Search query is required'
+      });
+    }
+
+    logger.info(`Performing semantic search for: "${query}"`);
+
+    const results = await ideaService.semanticSearch(query, {
+      filters,
+      limit,
+      threshold
+    });
+
+    res.json({
+      success: true,
+      data: {
+        query,
+        results,
+        count: results.length,
+        searchedAt: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    logger.error('Error in semantic search:', error);
+    res.status(500).json({
+      error: 'Failed to perform semantic search',
+      details: error.message
+    });
+  }
+});
+
+// Vector similarity endpoint
+app.post('/api/search/similarity', async (req, res) => {
+  try {
+    const { ideaId, limit = 5, threshold = 0.3 } = req.body;
+
+    if (!ideaId) {
+      return res.status(400).json({
+        error: 'Idea ID is required'
+      });
+    }
+
+    logger.info(`Finding similar ideas for: ${ideaId}`);
+
+    const similarIdeas = await ideaService.findSimilarIdeas(ideaId, {
+      limit,
+      threshold
+    });
+
+    res.json({
+      success: true,
+      data: {
+        ideaId,
+        similarIdeas,
+        count: similarIdeas.length,
+        searchedAt: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    logger.error('Error finding similar ideas:', error);
+    res.status(500).json({
+      error: 'Failed to find similar ideas',
+      details: error.message
+    });
+  }
+});
+
+// Search suggestions endpoint
+app.get('/api/search/suggestions', async (req, res) => {
+  try {
+    const { q: query = '', limit = 5 } = req.query;
+
+    if (query.length < 2) {
+      return res.json({
+        success: true,
+        data: { suggestions: [] }
+      });
+    }
+
+    const suggestions = await ideaService.getSearchSuggestions(query, { limit });
+
+    res.json({
+      success: true,
+      data: { suggestions }
+    });
+  } catch (error) {
+    logger.error('Error getting search suggestions:', error);
+    res.status(500).json({
+      error: 'Failed to get search suggestions',
+      details: error.message
+    });
+  }
+});
+
+// Search analytics endpoint
+app.get('/api/search/analytics', async (req, res) => {
+  try {
+    const analytics = await ideaService.getSearchAnalytics();
+
+    res.json({
+      success: true,
+      data: { analytics }
+    });
+  } catch (error) {
+    logger.error('Error fetching search analytics:', error);
+    res.status(500).json({
+      error: 'Failed to fetch search analytics',
+      details: error.message
+    });
+  }
+});
+
+// Get stats endpoint
+app.get('/api/stats', async (req, res) => {
+  try {
+    const stats = await ideaService.getStats();
+
+    res.json({
+      success: true,
+      data: { stats }
+    });
+  } catch (error) {
+    logger.error('Error fetching stats:', error);
+    res.status(500).json({
+      error: 'Failed to fetch stats',
       details: error.message
     });
   }
