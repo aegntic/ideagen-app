@@ -1,0 +1,62 @@
+{
+  "name": "03 - Selection System",
+  "nodes": [
+    {
+      "id": "webhook_trigger",
+      "name": "Selection Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [250, 300],
+      "parameters": {
+        "path": "selection-trigger",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "firstEntryJson"
+      }
+    },
+    {
+      "id": "get_validated_ideas",
+      "name": "Get Validated Ideas",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [450, 300],
+      "parameters": {
+        "operation": "select",
+        "table": {
+          "value": "ideas",
+          "mode": "list"
+        },
+        "returnAll": true,
+        "where": {
+          "status": "validated",
+          "validation_score": ">= 70"
+        },
+        "sort": {
+          "validation_score": "DESC"
+        },
+        "limit": 10
+      },
+      "credentials": {
+        "postgres": {
+          "id": "{{POSTGRES_CREDENTIALS_ID}}",
+          "name": "Idea Engine DB"
+        }
+      }
+    },
+    {
+      "id": "check_resources",
+      "name": "Check Resource Availability",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [650, 300],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COUNT(*) as active_projects FROM projects WHERE status IN ('initializing', 'active')"
+      },
+      "credentials": {
+        "postgres": {
+          "id": "{{POSTGRES_CREDENTIALS_ID}}",
+          "name": "Idea Engine DB"
+        }
+      }
+    }

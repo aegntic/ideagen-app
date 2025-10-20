@@ -1,0 +1,66 @@
+{
+  "environment": {
+    "NODE_ENV": "production",
+    "N8N_WEBHOOK_BASE_URL": "https://your-domain.com",
+    "N8N_PORT": 5678,
+    "N8N_DB_TYPE": "postgresdb",
+    "N8N_DB_POSTGRES_HOST": "localhost",
+    "N8N_DB_POSTGRES_PORT": 5432,
+    "N8N_DB_POSTGRES_DATABASE": "n8n",
+    "N8N_DB_POSTGRES_USER": "n8n_user",
+    "N8N_DB_POSTGRES_PASSWORD": "secure_password"
+  },
+  "credentials": {
+    "postgres": {
+      "host": "localhost",
+      "port": 5432,
+      "database": "idea_engine",
+      "user": "idea_engine_user",
+      "password": "{{ POSTGRES_PASSWORD }}",
+      "ssl": {
+        "rejectUnauthorized": false
+      }
+    },
+    "googleVertexAI": {
+      "projectId": "{{ GOOGLE_CLOUD_PROJECT_ID }}",
+      "location": "{{ GOOGLE_CLOUD_LOCATION }}",
+      "credentials": {
+        "client_email": "{{ GOOGLE_SERVICE_ACCOUNT_EMAIL }}",
+        "private_key": "{{ GOOGLE_PRIVATE_KEY }}"
+      }
+    },
+    "producthunt": {
+      "apiKey": "{{ PRODUCTHUNT_API_KEY }}",
+      "apiSecret": "{{ PRODUCTHUNT_API_SECRET }}"
+    }
+  },
+  "workflowSettings": {
+    "errorNotificationWebhook": "{{ ERROR_WEBHOOK_URL }}",
+    "successNotificationWebhook": "{{ SUCCESS_WEBHOOK_URL }}",
+    "timezone": "America/New_York",
+    "retryPolicy": {
+      "maxRetries": 3,
+      "retryInterval": 5000
+    },
+    "aiModels": {
+      "ideaGeneration": "gemini-2.5-pro",
+      "ideaValidation": "gemini-2.5-pro",
+      "contentCreation": "gemini-2.5-flash-nano-banana",
+      "quickAnalysis": "gemini-2.5-flash-nano-banana"
+    }
+  },
+  "integrations": {
+    "reddit": {
+      "userAgent": "n8n-idea-engine/1.0",
+      "subreddits": ["startups", "entrepreneur", "SaaS", "business", "smallbusiness"]
+    },
+    "twitter": {
+      "searchTerms": ["#startup", "#entrepreneurship", "#innovation", "#saas"],
+      "maxTweetsPerRun": 50
+    },
+    "googleTrends": {
+      "categories": ["business", "technology", "finance"],
+      "geo": "US"
+    }
+  }
+}

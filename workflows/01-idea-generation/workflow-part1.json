@@ -1,0 +1,240 @@
+{
+  "name": "01 - Idea Generation Hub",
+  "nodes": [
+    {
+      "id": "schedule_trigger",
+      "name": "Daily Idea Generation",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 9,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "fetch_reddit_trends",
+      "name": "Fetch Reddit Trends",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [450, 200],
+      "parameters": {
+        "method": "GET",
+        "url": "https://www.reddit.com/r/startups/hot.json?limit=10",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "n8n-idea-engine/1.0"
+            }
+          ]
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },    {
+      "id": "fetch_producthunt",
+      "name": "Fetch Product Hunt",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [450, 400],
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.producthunt.com/v2/api/graphql",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $credentials.producthunt.apiKey }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "{\"query\":\"{ posts(first: 10) { edges { node { name tagline topics { edges { node { name } } } } } } }\"}"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "code_aggregate_trends",
+      "name": "Aggregate Trends",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Aggregate trends from multiple sources\nconst aggregatedTrends = [];\n\n// Process Reddit data\nconst redditData = items[0]?.json?.data?.children || [];\nredditData.forEach(post => {\n  aggregatedTrends.push({\n    source: 'reddit',\n    title: post.data.title,\n    url: post.data.url,\n    score: post.data.score,\n    category: post.data.subreddit\n  });\n});\n\n// Process Product Hunt data (if available)\nif (items[1]?.json?.data?.posts?.edges) {\n  const phData = items[1].json.data.posts.edges;\n  phData.forEach(edge => {\n    aggregatedTrends.push({\n      source: 'producthunt',\n      title: edge.node.name,\n      tagline: edge.node.tagline,\n      topics: edge.node.topics.edges.map(t => t.node.name)\n    });\n  });\n}\n\n// Sort by relevance/score\naggregatedTrends.sort((a, b) => (b.score || 0) - (a.score || 0));\n\nreturn [{\n  json: {\n    trends: aggregatedTrends.slice(0, 20),\n    timestamp: new Date().toISOString(),\n    trendCount: aggregatedTrends.length\n  }\n}];"
+      }
+    },    {
+      "id": "openai_generate_ideas",
+      "name": "Generate Ideas with AI",
+      "type": "nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [850, 300],
+      "parameters": {
+        "resource": "text",
+        "operation": "message",
+        "modelId": "gpt-4",
+        "text": "Based on these trending topics and discussions:\\n\\n{{ $json.trends }}\\n\\nGenerate 10 innovative business ideas that could address problems or opportunities in these areas. For each idea, provide:\\n1. A catchy name\\n2. A one-sentence description\\n3. The problem it solves\\n4. Target market\\n5. Potential revenue model\\n6. Estimated market size (use realistic estimates)\\n\\nFormat the response as a JSON array of objects."
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "{{OPENAI_CREDENTIALS_ID}}",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "id": "code_parse_ideas",
+      "name": "Parse AI Ideas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 300],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "// Parse the AI response and prepare for database insertion\nconst aiResponse = $input.item.json.choices[0].message.content;\nlet ideas = [];\n\ntry {\n  // Extract JSON from the response\n  const jsonMatch = aiResponse.match(/\\[.*\\]/s);\n  if (jsonMatch) {\n    ideas = JSON.parse(jsonMatch[0]);\n  }\n} catch (error) {\n  // Fallback: create a single idea from the response\n  ideas = [{\n    name: 'AI Generated Idea',\n    description: aiResponse.substring(0, 200),\n    problem: 'To be defined',\n    targetMarket: 'To be defined',\n    revenueModel: 'To be defined',\n    marketSize: 1000000\n  }];\n}\n\n// Format ideas for database\nconst formattedIdeas = ideas.map(idea => ({\n  title: idea.name || idea.title,\n  description: idea.description,\n  category: 'ai_generated',\n  source: 'openai_gpt4',\n  market_size_estimate: parseFloat(idea.marketSize) || 1000000,\n  metadata: {\n    problem: idea.problem,\n    targetMarket: idea.targetMarket || idea.target_market,\n    revenueModel: idea.revenueModel || idea.revenue_model,\n    generatedFrom: $input.item.json.trends\n  },\n  status: 'pending'\n}));\n\nreturn formattedIdeas.map(idea => ({ json: idea }));"
+      }
+    },    {
+      "id": "postgres_store_ideas",
+      "name": "Store Ideas in Database",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [1250, 300],
+      "parameters": {
+        "operation": "insert",
+        "table": {
+          "value": "ideas",
+          "mode": "list",
+          "cachedResultName": "ideas"
+        },
+        "columns": "title,description,category,source,market_size_estimate,metadata,status",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "{{POSTGRES_CREDENTIALS_ID}}",
+          "name": "Idea Engine DB"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "webhook_notification",
+      "name": "Send Completion Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1450, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "{{ $env.NOTIFICATION_WEBHOOK_URL }}",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "{\\n  \\\"workflow\\\": \\\"Idea Generation Hub\\\",\\n  \\\"status\\\": \\\"completed\\\",\\n  \\\"ideasGenerated\\\": {{ $items().length }},\\n  \\\"timestamp\\\": \\\"{{ $now.toISO() }}\\\"\\n}"
+      },
+      "continueOnFail": true
+    }
+  ],
+  "connections": {
+    "Daily Idea Generation": {
+      "main": [
+        [
+          {
+            "node": "Fetch Reddit Trends",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Product Hunt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Reddit Trends": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Trends",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Product Hunt": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Trends",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Trends": {
+      "main": [
+        [
+          {
+            "node": "Generate Ideas with AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Ideas with AI": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Ideas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Ideas": {
+      "main": [
+        [
+          {
+            "node": "Store Ideas in Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Ideas in Database": {
+      "main": [
+        [
+          {
+            "node": "Send Completion Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": ["idea-generation", "automated", "daily"],
+  "notes": "This workflow runs daily at 9 AM to generate new business ideas based on trending topics from Reddit and Product Hunt. Ideas are stored in PostgreSQL for further validation."
+}

@@ -1,0 +1,74 @@
+{
+  "deployment": {
+    "platform": "google-cloud",
+    "region": "us-central1",
+    "project_id": "{{ GOOGLE_CLOUD_PROJECT_ID }}",
+    "service_account": "{{ GOOGLE_SERVICE_ACCOUNT_EMAIL }}"
+  },
+  "services": {
+    "vertex_ai": {
+      "enabled": true,
+      "models": {
+        "gemini_2_5_pro": {
+          "model_id": "gemini-2.5-pro",
+          "use_cases": ["idea_generation", "idea_validation", "detailed_analysis"],
+          "parameters": {
+            "temperature": 0.7,
+            "max_output_tokens": 2048,
+            "top_p": 0.95,
+            "top_k": 64
+          }
+        },
+        "gemini_2_5_flash_nano_banana": {
+          "model_id": "gemini-2.5-flash-nano-banana",
+          "use_cases": ["content_creation", "quick_analysis", "summarization"],
+          "parameters": {
+            "temperature": 0.9,
+            "max_output_tokens": 1024,
+            "top_p": 0.95,
+            "top_k": 40
+          }
+        }
+      }
+    },
+    "cloud_run": {
+      "enabled": true,
+      "memory": "2Gi",
+      "cpu": "1",
+      "max_instances": 10,
+      "min_instances": 1,
+      "concurrency": 10,
+      "timeout": "900s"
+    },
+    "cloud_sql": {
+      "enabled": true,
+      "instance_type": "db-f1-micro",
+      "database_version": "POSTGRES_15",
+      "region": "us-central1"
+    }
+  },
+  "monitoring": {
+    "cloud_logging": {
+      "enabled": true,
+      "log_level": "INFO"
+    },
+    "cloud_monitoring": {
+      "enabled": true,
+      "metrics": ["response_time", "error_rate", "request_count"]
+    }
+  },
+  "security": {
+    "iam": {
+      "roles": [
+        "roles/aiplatform.user",
+        "roles/run.invoker",
+        "roles/cloudsql.client"
+      ]
+    },
+    "secrets": {
+      "google_credentials": "idea-gen-google-credentials",
+      "database_password": "idea-gen-db-password",
+      "api_keys": "idea-gen-api-keys"
+    }
+  }
+}
