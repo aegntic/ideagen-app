@@ -1,4 +1,4 @@
--- Fivetran Connector Extensions for IdeaGen Database
+-- Fivetran Connector Extensions for promptre.quest Database
 -- Schema extensions for data sources: Reddit, Product Hunt, Google Trends, Twitter/X
 
 -- =============================================================================

@@ -1,7 +1,10 @@
 /**
- * IdeaGen App Server - Google Cloud Version
- * Automated Business Idea Pipeline with Vertex AI
+ * promptre.quest App Server - Google Cloud Version
+ * AI-Powered Business Idea Quest with Vertex AI
  */
+
+// Load environment variables
+require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
@@ -64,7 +67,7 @@ let secrets = {};
 // Initialize application
 async function initializeApp() {
   try {
-    logger.info('Initializing IdeaGen App...');
+    logger.info('Initializing promptre.quest App...');
 
     // Load secrets from Secret Manager
     await loadSecrets();
@@ -464,7 +467,7 @@ app.get('/api/stats', async (req, res) => {
 // API documentation endpoint
 app.get('/api/docs', (req, res) => {
   res.json({
-    title: 'IdeaGen API Documentation',
+    title: 'promptre.quest API Documentation',
     version: '2.0.0',
     endpoints: {
       'GET /health': 'Health check endpoint',
@@ -512,7 +515,7 @@ process.on('SIGINT', () => {
 // Start server
 initializeApp().then(() => {
   app.listen(PORT, () => {
-    logger.info(`IdeaGen server running on port ${PORT}`);
+    logger.info(`promptre.quest server running on port ${PORT}`);
     logger.info(`Health check: http://localhost:${PORT}/health`);
     logger.info(`API docs: http://localhost:${PORT}/api/docs`);
     logger.info(`Powered by Gemini 2.5 Pro & Flash models`);

@@ -1,4 +1,4 @@
-# 🎉 IdeaGen Deployment Success - Ready for Google Cloud!
+# 🎉 promptre.quest Deployment Success - Ready for Google Cloud!
 
 ## ✅ **Current Status: FULLY DEPLOYMENT READY**
 
@@ -17,7 +17,7 @@
    - Memory fallback architecture for reliability
 
 3. **✅ Docker Container Built Successfully**
-   - Image: `ideagen:latest` ✅
+   - Image: `promptre-quest:latest` ✅
    - Health check: ✅ Working
    - Local test: ✅ `http://localhost:8082` operational
    - Production configuration: ✅ Optimized
@@ -40,13 +40,13 @@ exec -l $SHELL
 
 # 2. Authenticate and deploy
 gcloud auth login
-./quick-deploy.sh ideagen-hackathon
+./quick-deploy.sh promptre-quest-hackathon
 ```
 
 ### **Option 2: Manual Cloud Console**
 1. **Go to**: https://console.cloud.google.com/run
 2. **Click**: "Create Service"
-3. **Container Image**: `ideagen:latest` (push to gcr.io first)
+3. **Container Image**: `promptre-quest:latest` (push to gcr.io first)
 4. **Settings**: 2GiB RAM, 1 CPU, Allow unauthenticated
 5. **Environment**: `NODE_ENV=production`
 
@@ -112,7 +112,7 @@ gcloud auth login
 1. **Open**: https://console.cloud.google.com/
 2. **Go to**: Cloud Run (https://console.cloud.google.com/run)
 3. **Click**: "Create Service"
-4. **Container**: Use our built `ideagen:latest` image
+4. **Container**: Use our built `promptre-quest:latest` image
 5. **Deploy**: Click "Deploy" → **LIVE IN 60 SECONDS**
 
 **Your AI-powered business idea platform will be live on Google Cloud with Vertex AI integration!** 🚀

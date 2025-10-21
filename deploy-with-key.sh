@@ -3,14 +3,14 @@
 
 set -e
 
-echo "🚀 Deploying IdeaGen with Service Account"
-echo "========================================="
+echo "🚀 Deploying promptre.quest with Service Account"
+echo "==============================================="
 
 # Configuration
-PROJECT_ID=${1:-"ideagen-hackathon"}
+PROJECT_ID=${1:-"promptre-quest-hackathon"}
 REGION=${2:-"us-central1"}
-SERVICE_NAME="ideagen"
-SERVICE_ACCOUNT_EMAIL="ideagen-sa@${PROJECT_ID}.iam.gserviceaccount.com"
+SERVICE_NAME="promptre-quest-app"
+SERVICE_ACCOUNT_EMAIL="promptre-quest-sa@${PROJECT_ID}.iam.gserviceaccount.com"
 
 # Colors
 GREEN='\033[0;32m'
@@ -54,9 +54,9 @@ if gcloud iam service-accounts describe "$SERVICE_ACCOUNT_EMAIL" &>/dev/null; th
     log "Service account already exists: $SERVICE_ACCOUNT_EMAIL"
 else
     log "Creating service account..."
-    gcloud iam service-accounts create "ideagen-sa" \
-        --display-name="IdeaGen Service Account" \
-        --description="Service account for IdeaGen deployment" || warn "Could not create service account"
+    gcloud iam service-accounts create "promptre-quest-sa" \
+        --display-name="promptre.quest Service Account" \
+        --description="Service account for promptre.quest deployment" || warn "Could not create service account"
 fi
 
 # Grant required roles

@@ -17,11 +17,7 @@ COPY package*.json ./
 # Install Node.js dependencies
 RUN npm ci --only=production && npm cache clean --force
 
-# Install Google Cloud SDK for local development
-RUN curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz && \
-    tar -xzf google-cloud-cli-linux-x86_64.tar.gz && \
-    ./google-cloud-sdk/install.sh --usage-reporting=false --path-completion=false --command-completion=false --quiet && \
-    rm -rf google-cloud-cli*
+# Google Cloud SDK not needed in container - Cloud Run provides authentication
 
 # Copy application code
 COPY . .

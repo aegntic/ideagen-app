@@ -1,11 +1,11 @@
 /**
- * Database layer for IdeaGen app
+ * Database layer for promptre.quest app
  * Handles all PostgreSQL operations
  */
 
 const { Pool } = require('pg');
 
-class IdeaGenDatabase {
+class PromptreQuestDatabase {
   constructor() {
     this.pool = null;
     this.isConnected = false;
@@ -522,4 +522,4 @@ class IdeaGenDatabase {
   }
 }
 
-module.exports = new IdeaGenDatabase();
+module.exports = new PromptreQuestDatabase();

@@ -1,23 +1,22 @@
 /**
- * ChromaDB Vector Database Integration
- * Handles vector storage and retrieval using ChromaDB
+ * Vector Database Implementation
+ * Handles vector storage and retrieval with fallback options
  */
 
-const { ChromaClient } = require('chromadb');
 const winston = require('winston');
 
-class ChromaVectorDB {
+class VectorDatabase {
   constructor(config = {}) {
     this.config = {
-      path: config.path || './chroma_db',
+      provider: config.provider || 'memory', // 'memory', 'chroma', 'elasticsearch'
       collection: config.collection || 'ideas',
-      embeddingFunction: config.embeddingFunction || null,
       ...config
     };
 
     this.client = null;
     this.collection = null;
     this.isConnected = false;
+    this.vectorStore = new Map(); // In-memory storage
 
     this.logger = winston.createLogger({
       level: 'info',
@@ -35,186 +34,290 @@ class ChromaVectorDB {
 
   async initialize() {
     try {
-      this.logger.info('Initializing ChromaDB client...');
+      this.logger.info(`Initializing vector database with provider: ${this.config.provider}`);
 
-      // Initialize ChromaDB client
+      switch (this.config.provider) {
+        case 'chroma':
+          return await this._initializeChromaDB();
+        case 'elasticsearch':
+          return await this._initializeElasticsearch();
+        default:
+          return await this._initializeMemory();
+      }
+    } catch (error) {
+      this.logger.error(`Failed to initialize vector database (${this.config.provider}):`, error);
+      // Fall back to memory storage
+      this.logger.info('Falling back to in-memory vector storage');
+      return await this._initializeMemory();
+    }
+  }
+
+  async _initializeMemory() {
+    this.logger.info('Using in-memory vector database');
+    this.isConnected = true;
+    return true;
+  }
+
+  async _initializeChromaDB() {
+    try {
+      const { ChromaClient } = require('chromadb');
+
       this.client = new ChromaClient({
-        path: this.config.path
+        path: this.config.path || 'http://localhost:8000'
       });
 
-      // Get or create collection
-      try {
-        this.collection = await this.client.getCollection({
-          name: this.config.collection
-        });
-        this.logger.info(`Connected to existing collection: ${this.config.collection}`);
-      } catch (error) {
-        if (error.message.includes('No collection found')) {
-          this.logger.info(`Creating new collection: ${this.config.collection}`);
-          this.collection = await this.client.createCollection({
-            name: this.config.collection,
-            metadata: {
-              description: 'Ideas vector collection for semantic search',
-              created: new Date().toISOString()
-            }
-          });
-        } else {
-          throw error;
+      this.collection = await this.client.getOrCreateCollection({
+        name: this.config.collection,
+        metadata: {
+          description: 'Ideas vector collection for semantic search',
+          created: new Date().toISOString()
         }
-      }
+      });
 
       this.isConnected = true;
       this.logger.info('ChromaDB client initialized successfully');
       return true;
     } catch (error) {
-      this.logger.error('Failed to initialize ChromaDB:', error);
+      this.logger.error('ChromaDB initialization failed:', error.message);
+      throw error;
+    }
+  }
+
+  async _initializeElasticsearch() {
+    try {
+      const { Client } = require('@elastic/elasticsearch');
+
+      this.client = new Client({
+        node: this.config.elasticsearchUrl || 'http://localhost:9200'
+      });
+
+      await this.client.ping();
+      this.isConnected = true;
+      this.logger.info('Elasticsearch client initialized successfully');
+      return true;
+    } catch (error) {
+      this.logger.error('Elasticsearch initialization failed:', error.message);
       throw error;
     }
   }
 
   /**
-   * Store vector embedding in ChromaDB
+   * Store vector embedding
    */
   async storeVector(vectorData) {
     try {
       if (!this.isConnected) {
-        throw new Error('ChromaDB not connected');
+        throw new Error('Vector database not connected');
       }
 
       const { id, embedding, text, metadata } = vectorData;
 
-      // Prepare data for ChromaDB
-      const chromaData = {
-        ids: [id],
-        embeddings: [embedding],
-        documents: [text],
-        metadatas: [metadata]
-      };
-
-      // Check if document already exists and update it
-      try {
-        const existingDoc = await this.collection.get({
-          ids: [id]
-        });
-
-        if (existingDoc.ids.length > 0) {
-          // Update existing document
-          await this.collection.update({
-            ids: [id],
-            embeddings: [embedding],
-            documents: [text],
-            metadatas: [metadata]
-          });
-          this.logger.info(`Updated vector document: ${id}`);
-          return { id, action: 'updated' };
-        }
-      } catch (error) {
-        // Document doesn't exist, continue with add
+      switch (this.config.provider) {
+        case 'chroma':
+          return await this._storeChromaVector(vectorData);
+        case 'elasticsearch':
+          return await this._storeElasticsearchVector(vectorData);
+        default:
+          return await this._storeMemoryVector(vectorData);
       }
-
-      // Add new document
-      await this.collection.add(chromaData);
-      this.logger.info(`Stored vector document: ${id}`);
-      return { id, action: 'added' };
     } catch (error) {
-      this.logger.error('Error storing vector in ChromaDB:', error);
-      throw error;
+      this.logger.error('Error storing vector:', error);
+      // Store in memory as fallback
+      return await this._storeMemoryVector(vectorData);
     }
   }
 
+  async _storeMemoryVector(vectorData) {
+    const { id, embedding, text, metadata } = vectorData;
+
+    this.vectorStore.set(id, {
+      id,
+      embedding,
+      text,
+      metadata,
+      createdAt: new Date().toISOString()
+    });
+
+    this.logger.debug(`Stored vector in memory: ${id}`);
+    return true;
+  }
+
+  async _storeChromaVector(vectorData) {
+    const { id, embedding, text, metadata } = vectorData;
+
+    const chromaData = {
+      ids: [id],
+      embeddings: [embedding],
+      documents: [text],
+      metadatas: [metadata]
+    };
+
+    await this.collection.upsert(chromaData);
+    this.logger.debug(`Stored vector in ChromaDB: ${id}`);
+    return true;
+  }
+
+  async _storeElasticsearchVector(vectorData) {
+    const { id, embedding, text, metadata } = vectorData;
+
+    await this.client.index({
+      index: this.config.collection,
+      id: id,
+      body: {
+        text,
+        embedding,
+        metadata,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+    this.logger.debug(`Stored vector in Elasticsearch: ${id}`);
+    return true;
+  }
+
   /**
-   * Search for similar vectors using cosine similarity
+   * Search for similar vectors
    */
-  async searchSimilar(queryEmbedding, options = {}) {
+  async searchSimilar(queryEmbedding, limit = 10) {
     try {
       if (!this.isConnected) {
-        throw new Error('ChromaDB not connected');
+        throw new Error('Vector database not connected');
       }
 
-      const {
-        limit = 10,
-        threshold = 0.7,
-        filters = {},
-        includeMetadata = true
-      } = options;
-
-      // Build where clause for filtering
-      let whereClause = {};
-      if (Object.keys(filters).length > 0) {
-        whereClause = this.buildWhereClause(filters);
+      switch (this.config.provider) {
+        case 'chroma':
+          return await this._searchChromaSimilar(queryEmbedding, limit);
+        case 'elasticsearch':
+          return await this._searchElasticsearchSimilar(queryEmbedding, limit);
+        default:
+          return await this._searchMemorySimilar(queryEmbedding, limit);
       }
+    } catch (error) {
+      this.logger.error('Error searching vectors:', error);
+      // Search in memory as fallback
+      return await this._searchMemorySimilar(queryEmbedding, limit);
+    }
+  }
 
-      // Query ChromaDB
-      const results = await this.collection.query({
-        queryEmbeddings: [queryEmbedding],
-        nResults: limit,
-        where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
-        include: includeMetadata ? ['metadatas', 'documents', 'distances'] : ['distances']
+  async _searchMemorySimilar(queryEmbedding, limit = 10) {
+    const results = [];
+
+    for (const [id, data] of this.vectorStore.entries()) {
+      const similarity = this._cosineSimilarity(queryEmbedding, data.embedding);
+      results.push({
+        id,
+        text: data.text,
+        metadata: data.metadata,
+        score: similarity
       });
+    }
 
-      // Process results
-      const processedResults = [];
-      if (results.ids[0] && results.ids[0].length > 0) {
-        for (let i = 0; i < results.ids[0].length; i++) {
-          const id = results.ids[0][i];
-          const distance = results.distances[0][i];
-          const similarity = 1 - distance; // Convert distance to similarity
+    // Sort by similarity and return top results
+    results.sort((a, b) => b.score - a.score);
+    return results.slice(0, limit);
+  }
 
-          if (similarity >= threshold) {
-            const result = {
-              id,
-              similarity,
-              distance
-            };
+  async _searchChromaSimilar(queryEmbedding, limit = 10) {
+    const results = await this.collection.query({
+      queryEmbeddings: [queryEmbedding],
+      nResults: limit
+    });
 
-            if (includeMetadata) {
-              result.text = results.documents[0][i];
-              result.metadata = results.metadatas[0][i];
+    return results.ids[0].map((id, index) => ({
+      id,
+      text: results.documents[0][index],
+      metadata: results.metadatas[0][index],
+      score: results.distances[0][index]
+    }));
+  }
+
+  async _searchElasticsearchSimilar(queryEmbedding, limit = 10) {
+    const response = await this.client.search({
+      index: this.config.collection,
+      body: {
+        size: limit,
+        query: {
+          script_score: {
+            query: { match_all: {} },
+            script: {
+              source: 'cosineSimilarity(params.query_vector, \'embedding\') + 1.0',
+              params: { query_vector: queryEmbedding }
             }
-
-            processedResults.push(result);
           }
         }
       }
+    });
 
-      // Sort by similarity (highest first)
-      processedResults.sort((a, b) => b.similarity - a.similarity);
-
-      this.logger.info(`ChromaDB search returned ${processedResults.length} results`);
-      return processedResults;
-    } catch (error) {
-      this.logger.error('Error searching ChromaDB:', error);
-      throw error;
-    }
+    return response.body.hits.hits.map(hit => ({
+      id: hit._id,
+      text: hit._source.text,
+      metadata: hit._source.metadata,
+      score: hit._score
+    }));
   }
 
   /**
-   * Get vector data by ID
+   * Calculate cosine similarity between two vectors
+   */
+  _cosineSimilarity(vecA, vecB) {
+    if (vecA.length !== vecB.length) {
+      throw new Error('Vectors must be same length');
+    }
+
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+
+    for (let i = 0; i < vecA.length; i++) {
+      dotProduct += vecA[i] * vecB[i];
+      normA += vecA[i] * vecA[i];
+      normB += vecB[i] * vecB[i];
+    }
+
+    if (normA === 0 || normB === 0) {
+      return 0;
+    }
+
+    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+  }
+
+  /**
+   * Get vector by ID
    */
   async getVector(id) {
     try {
-      if (!this.isConnected) {
-        throw new Error('ChromaDB not connected');
+      if (this.config.provider === 'memory' || !this.isConnected) {
+        return this.vectorStore.get(id);
       }
 
-      const result = await this.collection.get({
-        ids: [id],
-        include: ['metadatas', 'documents', 'embeddings']
-      });
-
-      if (result.ids.length === 0) {
-        return null;
+      switch (this.config.provider) {
+        case 'chroma':
+          const results = await this.collection.get({
+            ids: [id]
+          });
+          if (results.ids.length > 0) {
+            return {
+              id: results.ids[0],
+              text: results.documents[0],
+              metadata: results.metadatas[0]
+            };
+          }
+          break;
+        case 'elasticsearch':
+          const response = await this.client.get({
+            index: this.config.collection,
+            id: id
+          });
+          return {
+            id: response.body._id,
+            text: response.body._source.text,
+            metadata: response.body._source.metadata
+          };
       }
-
-      return {
-        id: result.ids[0],
-        text: result.documents[0],
-        embedding: result.embeddings[0],
-        metadata: result.metadatas[0]
-      };
+      return null;
     } catch (error) {
-      this.logger.error('Error getting vector from ChromaDB:', error);
-      throw error;
+      this.logger.error('Error getting vector:', error);
+      return this.vectorStore.get(id) || null;
     }
   }
 
@@ -223,97 +326,30 @@ class ChromaVectorDB {
    */
   async deleteVector(id) {
     try {
+      this.vectorStore.delete(id);
+
       if (!this.isConnected) {
-        throw new Error('ChromaDB not connected');
+        return true;
       }
 
-      await this.collection.delete({
-        ids: [id]
-      });
-
-      this.logger.info(`Deleted vector: ${id}`);
+      switch (this.config.provider) {
+        case 'chroma':
+          await this.collection.delete({
+            ids: [id]
+          });
+          break;
+        case 'elasticsearch':
+          await this.client.delete({
+            index: this.config.collection,
+            id: id
+          });
+          break;
+      }
       return true;
     } catch (error) {
-      this.logger.error('Error deleting vector from ChromaDB:', error);
-      throw error;
+      this.logger.error('Error deleting vector:', error);
+      return false;
     }
-  }
-
-  /**
-   * Batch store multiple vectors
-   */
-  async batchStoreVectors(vectors) {
-    try {
-      if (!this.isConnected) {
-        throw new Error('ChromaDB not connected');
-      }
-
-      const results = [];
-
-      // Process in batches to avoid overwhelming ChromaDB
-      const batchSize = 100;
-      for (let i = 0; i < vectors.length; i += batchSize) {
-        const batch = vectors.slice(i, i + batchSize);
-
-        const chromaData = {
-          ids: batch.map(v => v.id),
-          embeddings: batch.map(v => v.embedding),
-          documents: batch.map(v => v.text),
-          metadatas: batch.map(v => v.metadata)
-        };
-
-        try {
-          await this.collection.add(chromaData);
-          results.push(...batch.map(v => ({ id: v.id, success: true })));
-          this.logger.info(`Batch stored ${batch.length} vectors (batch ${Math.floor(i/batchSize) + 1})`);
-        } catch (error) {
-          this.logger.error(`Error storing batch ${Math.floor(i/batchSize) + 1}:`, error);
-          results.push(...batch.map(v => ({
-            id: v.id,
-            success: false,
-            error: error.message
-          })));
-        }
-      }
-
-      const successCount = results.filter(r => r.success).length;
-      this.logger.info(`Batch store completed: ${successCount}/${vectors.length} vectors stored successfully`);
-
-      return results;
-    } catch (error) {
-      this.logger.error('Error in batch storing vectors:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Build ChromaDB where clause from filters
-   */
-  buildWhereClause(filters) {
-    const whereClause = {};
-
-    for (const [key, value] of Object.entries(filters)) {
-      if (value === undefined || value === null) continue;
-
-      if (typeof value === 'string') {
-        whereClause[key] = { $eq: value };
-      } else if (Array.isArray(value)) {
-        whereClause[key] = { $in: value };
-      } else if (typeof value === 'object') {
-        // Support advanced filter operations
-        if (value.$eq) whereClause[key] = { $eq: value.$eq };
-        if (value.$ne) whereClause[key] = { $ne: value.$ne };
-        if (value.$in) whereClause[key] = { $in: value.$in };
-        if (value.$gt) whereClause[key] = { $gt: value.$gt };
-        if (value.$gte) whereClause[key] = { $gte: value.$gte };
-        if (value.$lt) whereClause[key] = { $lt: value.$lt };
-        if (value.$lte) whereClause[key] = { $lte: value.$lte };
-      } else {
-        whereClause[key] = { $eq: value };
-      }
-    }
-
-    return whereClause;
   }
 
   /**
@@ -321,95 +357,52 @@ class ChromaVectorDB {
    */
   async getStats() {
     try {
+      const memoryCount = this.vectorStore.size;
+
       if (!this.isConnected) {
-        throw new Error('ChromaDB not connected');
+        return {
+          provider: 'memory',
+          totalDocuments: memoryCount,
+          isConnected: false
+        };
       }
 
-      const count = await this.collection.count();
-      const collectionInfo = await this.collection.get();
-
-      return {
-        connected: this.isConnected,
-        collectionName: this.config.collection,
-        documentCount: count,
-        sampleIds: collectionInfo.ids.slice(0, 5),
-        lastActivity: new Date().toISOString()
-      };
+      switch (this.config.provider) {
+        case 'chroma':
+          const chromaCount = await this.collection.count();
+          return {
+            provider: 'chroma',
+            totalDocuments: chromaCount,
+            memoryDocuments: memoryCount,
+            isConnected: true
+          };
+        case 'elasticsearch':
+          const esResponse = await this.client.count({
+            index: this.config.collection
+          });
+          return {
+            provider: 'elasticsearch',
+            totalDocuments: esResponse.body.count,
+            memoryDocuments: memoryCount,
+            isConnected: true
+          };
+        default:
+          return {
+            provider: 'memory',
+            totalDocuments: memoryCount,
+            isConnected: true
+          };
+      }
     } catch (error) {
-      this.logger.error('Error getting ChromaDB stats:', error);
+      this.logger.error('Error getting stats:', error);
       return {
-        connected: false,
+        provider: this.config.provider,
+        totalDocuments: this.vectorStore.size,
+        isConnected: false,
         error: error.message
-      };
-    }
-  }
-
-  /**
-   * Clear all vectors from collection
-   */
-  async clearCollection() {
-    try {
-      if (!this.isConnected) {
-        throw new Error('ChromaDB not connected');
-      }
-
-      // Get all IDs and delete them
-      const allDocs = await this.collection.get();
-      if (allDocs.ids.length > 0) {
-        await this.collection.delete({
-          ids: allDocs.ids
-        });
-        this.logger.info(`Cleared ${allDocs.ids.length} vectors from collection`);
-      }
-
-      return true;
-    } catch (error) {
-      this.logger.error('Error clearing ChromaDB collection:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Close ChromaDB connection
-   */
-  async close() {
-    try {
-      // ChromaDB doesn't have explicit close method for HTTP client
-      this.isConnected = false;
-      this.client = null;
-      this.collection = null;
-      this.logger.info('ChromaDB connection closed');
-    } catch (error) {
-      this.logger.error('Error closing ChromaDB connection:', error);
-    }
-  }
-
-  /**
-   * Health check for ChromaDB
-   */
-  async healthCheck() {
-    try {
-      if (!this.isConnected) {
-        return { status: 'disconnected', error: 'ChromaDB not connected' };
-      }
-
-      // Try to get collection count as a simple health check
-      const count = await this.collection.count();
-
-      return {
-        status: 'healthy',
-        documentCount: count,
-        collectionName: this.config.collection,
-        timestamp: new Date().toISOString()
-      };
-    } catch (error) {
-      return {
-        status: 'unhealthy',
-        error: error.message,
-        timestamp: new Date().toISOString()
       };
     }
   }
 }
 
-module.exports = ChromaVectorDB;
+module.exports = VectorDatabase;
