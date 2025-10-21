@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IdeaGen – AI‑Powered Idea Pipeline</title>
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- External libraries for PDF generation and charts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-4aVrS8KLWyj3DCzbTtKW7ldnTNbaWMOPoAW8YgYwNKYNr3eoUbvzOAUAhGduSYlFRg0raYJ0ZhYYi20M0CwIMg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" integrity="sha384-N37KmtC+RfG5prAE6Ro/MT6Nt3vIUwzxA9eYL9vGRA+aiA0ruvJzjX3x6m3JhSaC" crossorigin="anonymous"></script>
+    <!-- Import Google font for a tall serif look (similar to Perplexity) -->
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
+    <script>
+      // Configure Tailwind to use custom colors matching the design brief
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              primary: {
+                DEFAULT: '#3b82f6',
+                dark: '#1e3a8a'
+              },
+              accent: {
+                DEFAULT: '#06b6d4',
+                dark: '#0891b2'
+              },
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      /* Custom styles for the hero background */
+      .hero {
+        background-image: url('assets/hero.png');
+        background-size: cover;
+        background-position: center;
+        /* Overlay for readability */
+        position: relative;
+      }
+      .hero::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(2, 6, 23, 0.8), rgba(2, 6, 23, 0.9));
+        z-index: 0;
+      }
+
+      /* Glassmorphism cards */
+      .glass-card {
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 1.25rem;
+        border: 1.5px solid rgba(255, 255, 255, 0.4);
+        backdrop-filter: blur(24px) saturate(160%);
+        -webkit-backdrop-filter: blur(24px) saturate(160%);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35), inset 0 1px 3px rgba(255, 255, 255, 0.12);
+        transition: transform 0.4s ease, box-shadow 0.4s ease;
+      }
+      .glass-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45), inset 0 2px 4px rgba(255, 255, 255, 0.16);
+      }
+
+      /* Icon styling for 3D responsiveness */
+      .icon {
+        display: inline-block;
+        padding: 0.25rem;
+        border-radius: 0.75rem;
+        background: linear-gradient(145deg, rgba(255,255,255,0.15), rgba(255,255,255,0.05));
+        transition: transform 0.3s ease;
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+      }
+      .icon:hover {
+        transform: rotateX(8deg) rotateY(-8deg) scale(1.05);
+      }
+
+
+      /* Magnifier cursor ring */
+      #cursor-ring {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 140px;
+        height: 140px;
+        border-radius: 50%;
+        pointer-events: none;
+        z-index: 9999;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        overflow: hidden;
+        backdrop-filter: blur(6px) saturate(120%);
+        -webkit-backdrop-filter: blur(6px) saturate(120%);
+        mix-blend-mode: normal;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+
+      /* Chat interface styling */
+      #chat-container {
+        max-height: 400px;
+        overflow-y: auto;
+        border-radius: 1rem;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(24px) saturate(160%);
+        background: rgba(255, 255, 255, 0.05);
+        padding: 1rem;
+      }
+      .chat-message {
+        margin-bottom: 0.5rem;
+        padding: 0.75rem;
+        border-radius: 0.75rem;
+        background: rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(16px) saturate(160%);
+        max-width: 80%;
+        transition: transform 0.3s;
+      }
+      .chat-message.user {
+        align-self: flex-end;
+        background: rgba(6, 182, 212, 0.25);
+      }
+      .chat-message.ai {
+        align-self: flex-start;
+        background: rgba(59, 130, 246, 0.25);
+      }
+      .chat-input {
+        border-radius: 0.5rem;
+        padding: 0.5rem 1rem;
+        width: 100%;
+        color: #d1d5db;
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(12px) saturate(160%);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      .chat-input::placeholder {
+        color: #6b7280;
+      }
+
+      /* Idea map styling */
+      #idea-map {
+        position: relative;
+        width: 100%;
+        height: 500px;
+        margin: 0 auto;
+      }
+      .node {
+        position: absolute;
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        cursor: pointer;
+        transition: transform 0.3s, box-shadow 0.3s;
+        backdrop-filter: blur(24px) saturate(160%);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+      }
+      .node:hover {
+        transform: scale(1.1);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      }
+      .node.central {
+        width: 160px;
+        height: 160px;
+        font-size: 1.25rem;
+        font-weight: 600;
+      }
+      .link-line {
+        position: absolute;
+        width: 2px;
+        background: rgba(255, 255, 255, 0.4);
+        transform-origin: top left;
+      }
+
+      /* Collaborator list styling */
+      #team-list li {
+        margin: 0.25rem 0;
+        padding: 0.5rem 0.75rem;
+        border-radius: 0.5rem;
+        background: rgba(255, 255, 255, 0.06);
+        backdrop-filter: blur(16px) saturate(160%);
+      }
+
+      /* Performance chart styling */
+      #metricsChart {
+        max-width: 700px;
+        margin: 0 auto;
+      }
+
+      /* Use the serif font for headings */
+      h1, h2, h3, h4 {
+        font-family: 'Playfair Display', serif;
+      }
+      /* Improve readability by increasing letter spacing and lightening the base text */
+      body {
+        letter-spacing: 0.01em;
+        color: #d4d4d8;
+        font-family: 'Inter', sans-serif;
+      }
+
+      /* Override default gray text classes to improve contrast on dark background */
+      .text-gray-300 { color: #d4d4d8 !important; }
+      .text-gray-400 { color: #9ca3af !important; }
+      .text-gray-500 { color: #64748b !important; }
+    </style>
+  </head>
+  <body class="text-gray-100 font-inter" style="background-image:url('assets/background.png'); background-size:cover; background-attachment:fixed;">
+    <!-- Navigation -->
+    <nav class="fixed top-0 inset-x-0 z-50 backdrop-blur bg-black/30 border-b border-white/10">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
+        <div class="flex items-center space-x-3">
+          <img src="assets/lightbulb_3d.png" alt="IdeaGen logo" class="h-10 w-auto" />
+          <span class="text-2xl font-semibold text-white">IdeaGen</span>
+        </div>
+        <div class="hidden md:flex space-x-8">
+          <a href="#features" class="text-gray-300 hover:text-white transition">Features</a>
+          <a href="#generate" class="text-gray-300 hover:text-white transition">Generate</a>
+          <a href="#validate" class="text-gray-300 hover:text-white transition">Validate</a>
+          <a href="#search" class="text-gray-300 hover:text-white transition">Search</a>
+          <a href="#analytics" class="text-gray-300 hover:text-white transition">Analytics</a>
+          <a href="#projects" class="text-gray-300 hover:text-white transition">Projects</a>
+        </div>
+      </div>
+    </nav>
+    
+    <!-- Hero Section -->
+    <section class="h-screen flex items-center justify-center text-center pt-16 relative">
+      <div class="relative z-10 max-w-4xl px-4">
+        <h1 class="text-5xl md:text-6xl font-extrabold mb-6 leading-tight bg-clip-text text-transparent bg-gradient-to-r from-primary-dark to-accent-dark">
+          Unleash AI‑Powered Innovation
+        </h1>
+        <p class="text-xl md:text-2xl text-gray-300 mb-8">
+          Turn sparks into startups with a single click. Generate, validate &amp; launch ideas at the speed of thought.
+        </p>
+        <a href="#generate" class="inline-block px-8 py-4 rounded-full text-lg font-semibold bg-gradient-to-r from-primary to-accent hover:from-accent hover:to-primary transition shadow-xl">
+          Get Started
+        </a>
+      </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="py-20">
+      <div class="max-w-6xl mx-auto px-4">
+        <h2 class="text-4xl font-bold text-center mb-12">Key Features</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          <!-- Idea Generation -->
+          <div class="p-6 glass-card">
+            <img src="assets/lightbulb_3d.png" alt="Idea generation" class="h-16 w-16 mb-4 icon" />
+            <h3 class="text-xl font-semibold mb-2 text-white">AI Idea Generation</h3>
+            <p class="text-gray-300 text-sm">Harness the power of Gemini to conjure high‑quality business ideas from real‑world trends.</p>
+          </div>
+          <!-- Validation -->
+          <div class="p-6 glass-card">
+            <img src="assets/check_3d.png" alt="Validation" class="h-16 w-16 mb-4 icon" />
+            <h3 class="text-xl font-semibold mb-2 text-white">Automatic Validation</h3>
+            <p class="text-gray-300 text-sm">Assess market demand, competition, feasibility and more with multi‑criteria AI scoring.</p>
+          </div>
+          <!-- Search -->
+          <div class="p-6 glass-card">
+            <img src="assets/search_3d.png" alt="Search" class="h-16 w-16 mb-4 icon" />
+            <h3 class="text-xl font-semibold mb-2 text-white">Semantic Search</h3>
+            <p class="text-gray-300 text-sm">Find the perfect idea with natural language queries and similarity search across thousands of entries.</p>
+          </div>
+          <!-- Analytics -->
+          <div class="p-6 glass-card">
+            <img src="assets/analytics_3d.png" alt="Analytics" class="h-16 w-16 mb-4 icon" />
+            <h3 class="text-xl font-semibold mb-2 text-white">Real‑time Analytics</h3>
+            <p class="text-gray-300 text-sm">Visualize performance metrics and market trends with interactive charts and dashboards.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Generate Section -->
+    <section id="generate" class="py-20 border-t border-slate-800/40">
+      <div class="max-w-5xl mx-auto px-4 text-center">
+        <h2 class="text-4xl font-bold mb-6">Generate Ideas</h2>
+        <p class="text-gray-400 max-w-2xl mx-auto mb-8">
+          Choose your sources and let our AI conjure high‑quality business ideas. It’s like brainstorming on autopilot—without the caffeine.
+        </p>
+        <!-- Form controls for generating ideas (placeholder) -->
+        <div class="flex flex-col sm:flex-row justify-center gap-4 mb-8">
+          <input type="number" id="ideaCount" min="1" max="20" value="10" class="w-full sm:w-auto px-4 py-3 rounded-lg text-gray-200 placeholder-gray-400 glass-card" placeholder="Number of ideas" />
+          <button onclick="generateIdeas()" class="w-full sm:w-auto px-6 py-3 rounded-lg bg-gradient-to-r from-primary to-accent hover:from-accent hover:to-primary font-medium">
+            Generate
+          </button>
+        </div>
+        <!-- Results placeholder -->
+        <div id="ideaResults" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"></div>
+      </div>
+    </section>
+
+    <!-- Chat Interface Section -->
+    <section id="chat" class="py-20 border-t border-slate-800/40">
+      <div class="max-w-5xl mx-auto px-4">
+        <h2 class="text-4xl font-bold mb-6 text-center">AI Chat Assistant</h2>
+        <p class="text-gray-400 text-center max-w-3xl mx-auto mb-8">
+          Explore your ideas conversationally. Ask questions, refine concepts and let our assistant help you iterate in real time.
+        </p>
+        <div id="chat-container" class="flex flex-col space-y-2 mb-4"></div>
+        <div class="flex space-x-2">
+          <input id="chatInput" type="text" class="chat-input" placeholder="Type your message…" onkeypress="if(event.key==='Enter'){sendMessage()}" />
+          <button onclick="sendMessage()" class="px-4 py-2 rounded-lg bg-gradient-to-r from-primary to-accent hover:from-accent hover:to-primary font-medium">Send</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Idea Map Section -->
+    <section id="idea-map-section" class="py-20 border-t border-slate-800/40">
+      <div class="max-w-5xl mx-auto px-4">
+        <h2 class="text-4xl font-bold mb-6 text-center">Interactive Idea Map</h2>
+        <p class="text-gray-400 text-center max-w-3xl mx-auto mb-8">
+          Visualize how different features of IdeaGen interconnect. Hover over nodes to explore relationships and see your innovation landscape.
+        </p>
+        <div id="idea-map"></div>
+      </div>
+    </section>
+
+    <!-- Export Capabilities Section -->
+    <section id="export" class="py-20 border-t border-slate-800/40">
+      <div class="max-w-5xl mx-auto px-4 text-center">
+        <h2 class="text-4xl font-bold mb-6">Export Your Ideas</h2>
+        <p class="text-gray-400 max-w-3xl mx-auto mb-8">
+          Generate reports of your ideas with ease. Export them as professional PDFs or structured CSV files to share with your team or analyze later.
+        </p>
+        <div class="flex flex-col sm:flex-row justify-center gap-4">
+          <button onclick="exportPDF()" class="px-6 py-3 rounded-lg bg-gradient-to-r from-primary to-accent hover:from-accent hover:to-primary font-medium">Export to PDF</button>
+          <button onclick="exportCSV()" class="px-6 py-3 rounded-lg bg-gradient-to-r from-primary to-accent hover:from-accent hover:to-primary font-medium">Export to CSV</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Collaboration Section -->
+    <section id="collaboration" class="py-20 border-t border-slate-800/40">
+      <div class="max-w-5xl mx-auto px-4">
+        <h2 class="text-4xl font-bold mb-6 text-center">Collaborate with Your Team</h2>
+        <p class="text-gray-400 text-center max-w-3xl mx-auto mb-8">
+          Invite collaborators and build a shared workspace. Manage your idea pipeline together and keep everyone in sync.
+        </p>
+        <div class="flex flex-col sm:flex-row justify-center gap-4 mb-4">
+          <input id="teamInput" type="text" class="chat-input" placeholder="Add a team member name" />
+          <button onclick="addTeamMember()" class="px-6 py-3 rounded-lg bg-gradient-to-r from-primary to-accent hover:from-accent hover:to-primary font-medium">Add Member</button>
+        </div>
+        <ul id="team-list" class="text-gray-200 max-w-md mx-auto"></ul>
+      </div>
+    </section>
+
+    <!-- Performance Metrics Section -->
+    <section id="metrics" class="py-20 border-t border-slate-800/40">
+      <div class="max-w-5xl mx-auto px-4 text-center">
+        <h2 class="text-4xl font-bold mb-6">Performance Metrics</h2>
+        <p class="text-gray-400 max-w-3xl mx-auto mb-8">
+          Monitor how your pipeline performs. This demo chart simulates response times and throughput for your idea generation and validation flows.
+        </p>
+        <div id="metricsChart" class="space-y-6 mt-8"></div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900/70 border-t border-slate-800/50 py-10 backdrop-blur">
+      <div class="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center space-y-6 md:space-y-0">
+        <div class="flex items-center space-x-3">
+          <img src="assets/logo.png" alt="IdeaGen" class="h-8 w-auto" />
+          <span class="text-lg font-semibold">IdeaGen</span>
+        </div>
+        <p class="text-gray-500 text-sm">© 2025 IdeaGen. Built with AI and a sprinkle of ingenuity.</p>
+      </div>
+    </footer>
+
+    <!-- Custom magnifier cursor overlay -->
+    <div id="cursor-ring"></div>
+
+    <!-- Scripts -->
+    <script>
+      // Generate dummy ideas client‑side for demo purposes
+      const sampleTitles = [
+        'AI‑Powered Customer Service Platform',
+        'Automated Market Research Tool',
+        'Intelligent Supply Chain Optimizer',
+        'Personalized Learning Mentor',
+        'Predictive Health Analytics',
+        'Smart Recruitment Assistant',
+        'Virtual Interior Designer',
+        'AI‑Driven Legal Advisor',
+        'Autonomous Marketing Strategist',
+        'Data‑Driven Investment Analyst'
+      ];
+
+      function generateIdeas() {
+        const count = parseInt(document.getElementById('ideaCount').value) || 5;
+        const container = document.getElementById('ideaResults');
+        container.innerHTML = '';
+        for (let i = 0; i < count; i++) {
+          const title = sampleTitles[i % sampleTitles.length];
+          const card = document.createElement('div');
+          card.className = 'glass-card p-4 flex flex-col justify-between';
+          card.innerHTML = `
+            <div>
+              <h4 class="font-semibold text-lg mb-2 text-primary">${title}</h4>
+              <p class="text-gray-300 text-sm">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur vitae libero non elit gravida convallis.</p>
+            </div>
+            <button class="mt-4 px-4 py-2 rounded bg-gradient-to-r from-primary to-accent text-sm font-medium hover:from-accent hover:to-primary">Validate</button>
+          `;
+          container.appendChild(card);
+        }
+        // Scroll to results
+        container.scrollIntoView({ behavior: 'smooth' });
+      }
+
+      // Parallax background and custom magnifier cursor
+      document.addEventListener('mousemove', (e) => {
+        const xPercent = (e.clientX / window.innerWidth - 0.5) * 20;
+        const yPercent = (e.clientY / window.innerHeight - 0.5) * 20;
+        document.body.style.backgroundPosition = `${50 + xPercent}% ${50 + yPercent}%`;
+        const ring = document.getElementById('cursor-ring');
+        if (ring) {
+          ring.style.transform = `translate(${e.clientX - ring.offsetWidth / 2}px, ${e.clientY - ring.offsetHeight / 2}px)`;
+          // fade in the ring on first movement
+          if (ring.style.opacity === '0') {
+            ring.style.opacity = '1';
+          }
+        }
+      });
+
+      /*
+       * Chat interface logic
+       */
+      const aiReplies = [
+        'That’s an interesting direction! Consider focusing on scalability for bigger impact.',
+        'Great thought. How would you differentiate this from existing solutions?',
+        'Nice! Have you thought about the target demographic?',
+        'Let’s explore the revenue model. Subscription or freemium?',
+        'We could combine this with AI‑driven personalization for added value.',
+        'Keep going—what other problems does this idea solve?',
+        'Think about potential partners or integrations that could accelerate this concept.'
+      ];
+
+      function addChatMessage(text, type) {
+        const container = document.getElementById('chat-container');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'chat-message ' + type;
+        messageDiv.textContent = text;
+        container.appendChild(messageDiv);
+        container.scrollTop = container.scrollHeight;
+      }
+
+      function sendMessage() {
+        const input = document.getElementById('chatInput');
+        const text = input.value.trim();
+        if (!text) return;
+        addChatMessage(text, 'user');
+        input.value = '';
+        // Simulate AI response after a short delay
+        setTimeout(() => {
+          const response = aiReplies[Math.floor(Math.random() * aiReplies.length)];
+          addChatMessage(response, 'ai');
+        }, 600);
+      }
+
+      /*
+       * Idea map creation
+       */
+      function createIdeaMap() {
+        const map = document.getElementById('idea-map');
+        if (!map) return;
+        map.innerHTML = '';
+        const width = map.clientWidth;
+        const height = map.clientHeight;
+        // Ensure map has dimensions when empty (fallback if 0)
+        const fallbackWidth = width || map.offsetWidth || 600;
+        const fallbackHeight = height || map.offsetHeight || 500;
+        const centerX = fallbackWidth / 2;
+        const centerY = fallbackHeight / 2;
+        // Central node
+        const central = document.createElement('div');
+        central.className = 'node central';
+        central.style.background = 'rgba(255,255,255,0.1)';
+        central.style.top = (centerY - 80) + 'px';
+        central.style.left = (centerX - 80) + 'px';
+        central.textContent = 'IdeaGen';
+        map.appendChild(central);
+        // Peripheral nodes configuration
+        const nodes = [
+          { name: 'AI Chat', color: '#06b6d4', desc: 'Conversational exploration of ideas.' },
+          { name: 'Idea Map', color: '#3b82f6', desc: 'Visual relationship mapping.' },
+          { name: 'Export', color: '#84cc16', desc: 'Generate PDFs & CSV reports.' },
+          { name: 'Collaborate', color: '#f97316', desc: 'Team workspaces & sharing.' },
+          { name: 'Metrics', color: '#a855f7', desc: 'Visualize performance metrics.' },
+          { name: 'Animations', color: '#ec4899', desc: 'Micro‑interactions & transitions.' }
+        ];
+        const radius = Math.min(fallbackWidth, fallbackHeight) * 0.35;
+        nodes.forEach((node, idx) => {
+          const angle = (idx / nodes.length) * 2 * Math.PI - Math.PI / 2;
+          const x = centerX + radius * Math.cos(angle) - 60;
+          const y = centerY + radius * Math.sin(angle) - 60;
+          // Node element
+          const el = document.createElement('div');
+          el.className = 'node';
+          el.style.background = `linear-gradient(135deg, ${node.color}33, ${node.color}99)`;
+          el.style.top = y + 'px';
+          el.style.left = x + 'px';
+          el.innerHTML = `<span class="px-2 text-center">${node.name}</span>`;
+          // Tooltip on hover
+          el.title = node.desc;
+          map.appendChild(el);
+          // Line connecting central node to this node
+          const line = document.createElement('div');
+          line.className = 'link-line';
+          const nx = x + 60; // center of node
+          const ny = y + 60;
+          const dx = nx - centerX;
+          const dy = ny - centerY;
+          const length = Math.sqrt(dx * dx + dy * dy);
+          const angleDeg = Math.atan2(dy, dx) * 180 / Math.PI;
+          line.style.width = length + 'px';
+          line.style.height = '2px';
+          line.style.top = centerY + 'px';
+          line.style.left = centerX + 'px';
+          line.style.transform = `rotate(${angleDeg}deg)`;
+          map.appendChild(line);
+        });
+      }
+
+      /*
+       * Export functionality
+       */
+      function exportCSV() {
+        const cards = Array.from(document.getElementById('ideaResults').children);
+        if (!cards.length) {
+          alert('No ideas to export. Please generate ideas first.');
+          return;
+        }
+        let csv = 'Title,Description\n';
+        cards.forEach(card => {
+          const title = card.querySelector('h4').textContent.replace(/,/g, ';');
+          const body = card.querySelector('p').textContent.replace(/,/g, ';');
+          csv += `"${title}","${body}"\n`;
+        });
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'ideas.csv';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+
+      function exportPDF() {
+        const cards = Array.from(document.getElementById('ideaResults').children);
+        if (!cards.length) {
+          alert('No ideas to export. Please generate ideas first.');
+          return;
+        }
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        let y = 20;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(16);
+        doc.text('IdeaGen Report', 105, 12, { align: 'center' });
+        doc.setFontSize(12);
+        cards.forEach((card, idx) => {
+          const title = card.querySelector('h4').textContent;
+          const body = card.querySelector('p').textContent;
+          doc.setFont('helvetica', 'bold');
+          doc.text(title, 10, y);
+          y += 6;
+          doc.setFont('helvetica', 'normal');
+          const lines = doc.splitTextToSize(body, 180);
+          doc.text(lines, 10, y);
+          y += lines.length * 5 + 8;
+          if (y > 270) {
+            doc.addPage();
+            y = 20;
+          }
+        });
+        doc.save('ideas.pdf');
+      }
+
+      /*
+       * Collaboration functionality
+       */
+      function addTeamMember() {
+        const input = document.getElementById('teamInput');
+        const name = input.value.trim();
+        if (!name) return;
+        const li = document.createElement('li');
+        li.textContent = name;
+        document.getElementById('team-list').appendChild(li);
+        input.value = '';
+      }
+
+      /*
+       * Performance metrics chart
+       */
+      function initMetricsChart() {
+        const container = document.getElementById('metricsChart');
+        if (!container) return;
+        container.innerHTML = '';
+        const datasets = [
+          { name: 'Response Time (ms)', color: '#06b6d4', values: [] },
+          { name: 'Throughput (req/s)', color: '#a855f7', values: [] }
+        ];
+        // Create containers for each dataset
+        datasets.forEach(ds => {
+          const dsDiv = document.createElement('div');
+          dsDiv.className = 'w-full';
+          const label = document.createElement('div');
+          label.className = 'mb-1 text-sm font-medium';
+          label.textContent = ds.name;
+          dsDiv.appendChild(label);
+          const barContainer = document.createElement('div');
+          barContainer.className = 'flex items-end space-x-1 h-28';
+          ds.barContainer = barContainer;
+          dsDiv.appendChild(barContainer);
+          container.appendChild(dsDiv);
+        });
+        function render() {
+          datasets.forEach(ds => {
+            if (ds.values.length >= 10) ds.values.shift();
+            const newVal = ds.name.includes('Response') ? Math.floor(Math.random() * 400) + 100 : Math.floor(Math.random() * 50) + 10;
+            ds.values.push(newVal);
+            ds.barContainer.innerHTML = '';
+            ds.values.forEach(val => {
+              const bar = document.createElement('div');
+              bar.style.flex = '1';
+              bar.style.background = ds.color;
+              bar.style.height = (ds.name.includes('Response') ? val / 500 * 100 : val / 60 * 100) + '%';
+              bar.style.borderRadius = '0.25rem 0.25rem 0 0';
+              bar.style.transition = 'height 0.5s ease';
+              ds.barContainer.appendChild(bar);
+            });
+          });
+        }
+        render();
+        setInterval(render, 4000);
+      }
+
+      // Initialize components on page load
+      window.addEventListener('load', () => {
+        createIdeaMap();
+        initMetricsChart();
+      });
+    </script>
+  </body>
+</html>
