@@ -279,7 +279,8 @@ class SubagentCoordinationSystem {
         currentPhase: context.fpefPhase || 'unknown',
         evidenceRequired: true,
         minimalIntervention: true,
-        outcomeFocus: true
+        outcomeFocus: true,
+        frameworkDefinition: 'Faulty Prompt Empowerment Flex - Breaking through AI limitations with adaptive prompting strategies'
       },
       ultraThinkEnhanced: {
         sequentialThinking: true,
