@@ -1,6 +1,6 @@
 /**
  * Subagent Coordination System for promptre.quest
- * Implements parallel processing with FPEF principles + UltraThink reasoning
+ * Implements parallel processing with FPEF + UltraThink framework
  */
 
 class SubagentCoordinationSystem {
@@ -15,7 +15,7 @@ class SubagentCoordinationSystem {
     };
   }
 
-  // FPEF Phase 1: System Analysis (Parallel)
+  // FPEF Phase 1: System Mapping (Parallel)
   async mapSystemParallel(taskId, systemContext) {
     const mappingSubagents = [
       'architecture-mapper',
@@ -71,7 +71,7 @@ class SubagentCoordinationSystem {
     return evidenceSynthesis;
   }
 
-  // FPEF Phase 3: Minimal Intervention (UltraThink Enhanced)
+  // FPEF Phase 3: Minimal Viable Intervention (UltraThink Enhanced)
   async planOptimalIntervention(taskId, evidence) {
     // Sequential UltraThink processing for optimal intervention
     const interventionSteps = [
