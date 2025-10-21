@@ -1,15 +1,15 @@
 #!/bin/bash
-# Quick Google Cloud Deployment for IdeaGen
+# Quick Google Cloud Deployment for promptre.quest
 
 set -e
 
-echo "🚀 Quick Deploy IdeaGen to Google Cloud"
-echo "========================================"
+echo "🚀 Quick Deploy promptre.quest to Google Cloud"
+echo "==============================================="
 
 # Configuration
-PROJECT_ID=${1:-"ideagen-hackathon"}
+PROJECT_ID=${1:-"promptre-quest-hackathon"}
 REGION=${2:-"us-central1"}
-SERVICE_NAME="ideagen"
+SERVICE_NAME="promptre-quest-app"
 
 echo "Project ID: $PROJECT_ID"
 echo "Region: $REGION"
@@ -94,7 +94,7 @@ else
 fi
 
 echo ""
-echo "🌟 Your IdeaGen application is now live!"
+echo "🌟 Your promptre.quest application is now live!"
 echo "🔗 URL: $SERVICE_URL"
 echo ""
 echo "Next steps:"

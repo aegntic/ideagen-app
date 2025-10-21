@@ -1,12 +1,12 @@
-# IdeaGen App - AI-Powered Business Idea Pipeline
+# promptre.quest - AI-Powered Business Idea Quest
 
 **Now powered by Google Vertex AI with Gemini 2.5 Pro & Flash models!**
 
-An advanced AI-driven platform that automates the entire journey from idea discovery to multi-project management. Built for Google Cloud with scalable SaaS architecture in mind.
+An advanced AI-driven platform that transforms your quest for the perfect business idea into reality. Built for Google Cloud with scalable SaaS architecture in mind.
 
 ## Overview
 
-The IdeaGen App is a comprehensive automation platform that:
+promptre.quest is a comprehensive automation platform that:
 - **Generates business ideas** using Google's Gemini 2.5 Pro model
 - **Validates ideas** through AI-powered multi-criteria analysis
 - **Selects viable projects** automatically based on scoring

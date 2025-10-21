@@ -4,7 +4,7 @@
  */
 
 const db = require('../database/database');
-const IdeaGenVertexAIClient = require('../../integrations/vertex-ai-client');
+const PromptreQuestVertexAIClient = require('../../integrations/vertex-ai-client');
 const vectorService = require('./vectorService');
 
 class IdeaService {
@@ -32,7 +32,7 @@ class IdeaService {
           config.keyFile = process.env.GOOGLE_APPLICATION_CREDENTIALS;
         }
 
-        this.vertexAI = new IdeaGenVertexAIClient(config);
+        this.vertexAI = new PromptreQuestVertexAIClient(config);
         console.log('Vertex AI client initialized');
       }
 
@@ -74,10 +74,15 @@ class IdeaService {
         data: `Sample data from ${source}`
       }));
 
-      // Generate ideas using Vertex AI
+      // Generate ideas using Vertex AI with fallback
       let ideas = [];
       if (this.vertexAI) {
-        ideas = await this.vertexAI.generateIdeas(sampleTrends, sourceData, count);
+        try {
+          ideas = await this.vertexAI.generateIdeas(sampleTrends, sourceData, count);
+        } catch (error) {
+          console.warn('Vertex AI failed, falling back to mock ideas:', error.message);
+          ideas = this.generateMockIdeas(count, categories);
+        }
       } else {
         // Fallback to mock ideas if Vertex AI is not available
         ideas = this.generateMockIdeas(count, categories);
